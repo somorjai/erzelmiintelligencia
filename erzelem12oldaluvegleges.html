@@ -20,8 +20,15 @@
       --translate-z: calc(var(--poly-size) * 0.66);
     }
 
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
 
     body {
       min-height: 100dvh;
@@ -130,7 +137,9 @@
     }
 
     @media (max-width: 620px) {
-      :root { --poly-size: min(78vw, 340px); }
+      :root {
+        --poly-size: min(78vw, 340px);
+      }
 
       .face {
         width: 160px;
@@ -158,7 +167,7 @@
     <div class="shadow" aria-hidden="true"></div>
 
     <div class="hint">
-      Vezérlés: → előre, ← hátra, ↑ felfelé.
+      Vezérlés: → előre, ← hátra, ↑ felfelé.<br />
       Kinect: bal kéz = balra, jobb kéz = jobbra.
     </div>
   </main>
@@ -204,12 +213,19 @@
         [-goldenRatio, 0, -1]
       ];
 
-      const vectorLength = (v) => Math.hypot(v[0], v[1], v[2]);
+      function vectorLength(vector) {
+        return Math.hypot(vector[0], vector[1], vector[2]);
+      }
 
-      const normalize = (v) => {
-        const len = vectorLength(v);
-        return [v[0] / len, v[1] / len, v[2] / len];
-      };
+      function normalize(vector) {
+        const length = vectorLength(vector);
+
+        return [
+          vector[0] / length,
+          vector[1] / length,
+          vector[2] / length
+        ];
+      }
 
       const faceData = emotions.map((emotion, index) => {
         const normal = normalize(vertices[index]);
@@ -262,58 +278,74 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
       }
 
+      /*
+        Javított választófüggvény.
+
+        Nem használ while ciklust, ezért nem tud végtelen ciklusban
+        maradni akkor sem, ha az adott irányhoz csak az aktuális oldal
+        lenne kiválasztható.
+      */
       function chooseIndex(direction) {
-        let nextIndex = currentIndex;
+        let candidates;
 
-        while (nextIndex === currentIndex) {
-          if (direction === 'up') {
-            const upwardCandidates = faceData
-              .map((face, index) => ({
-                index,
-                y: face.normal[1]
-              }))
-              .filter((item) => item.y > 0.15)
-              .sort((a, b) => b.y - a.y);
+        if (direction === 'up') {
+          candidates = faceData
+            .map((face, index) => ({
+              index,
+              value: face.normal[1]
+            }))
+            .filter((item) => item.value > 0.15)
+            .sort((a, b) => b.value - a.value);
 
-            nextIndex =
-              upwardCandidates[
-                rand(0, upwardCandidates.length - 1)
-              ].index;
+        } else if (direction === 'left') {
+          candidates = faceData
+            .map((face, index) => ({
+              index,
+              value: face.normal[0]
+            }))
+            .filter((item) => item.value < -0.12)
+            .sort((a, b) => a.value - b.value);
 
-          } else if (direction === 'left') {
-            const leftCandidates = faceData
-              .map((face, index) => ({
-                index,
-                x: face.normal[0]
-              }))
-              .filter((item) => item.x < -0.12)
-              .sort((a, b) => a.x - b.x);
+        } else if (direction === 'right') {
+          candidates = faceData
+            .map((face, index) => ({
+              index,
+              value: face.normal[0]
+            }))
+            .filter((item) => item.value > 0.12)
+            .sort((a, b) => b.value - a.value);
 
-            nextIndex =
-              leftCandidates[
-                rand(0, leftCandidates.length - 1)
-              ].index;
-
-          } else if (direction === 'right') {
-            const rightCandidates = faceData
-              .map((face, index) => ({
-                index,
-                x: face.normal[0]
-              }))
-              .filter((item) => item.x > 0.12)
-              .sort((a, b) => b.x - a.x);
-
-            nextIndex =
-              rightCandidates[
-                rand(0, rightCandidates.length - 1)
-              ].index;
-
-          } else {
-            nextIndex = rand(0, faceData.length - 1);
-          }
+        } else {
+          candidates = faceData.map((face, index) => ({
+            index
+          }));
         }
 
-        return nextIndex;
+        /*
+          A jelenleg kiválasztott oldal ne legyen újra kiválasztható.
+        Így biztosan másik oldalra fordul a test.
+        */
+        const differentCandidates = candidates.filter(
+          (item) => item.index !== currentIndex
+        );
+
+        if (differentCandidates.length > 0) {
+          return differentCandidates[
+            rand(0, differentCandidates.length - 1)
+          ].index;
+        }
+
+        /*
+          Tartalék megoldás: ha az irányszűrés után nincs másik oldal,
+          akkor a 12 oldal bármely másik eleme közül választunk.
+        */
+        const fallbackCandidates = faceData
+          .map((face, index) => index)
+          .filter((index) => index !== currentIndex);
+
+        return fallbackCandidates[
+          rand(0, fallbackCandidates.length - 1)
+        ];
       }
 
       function roll(direction = 'right') {
@@ -372,7 +404,7 @@
       }
 
       /*
-        Megmarad a teljes billentyűzetes vezérlés:
+        Billentyűzetes vezérlés:
         ← : balra
         → : jobbra
         ↑ : felfelé
@@ -402,8 +434,7 @@
       }
 
       /*
-        Ugyanaz a már működő KinectBridge WebSocket címe.
-        A Bridge "left" vagy "right" üzenetet küld.
+        A már működő KinectBridge.exe helyi WebSocket-szervere.
       */
       const KINECT_BRIDGE_URL = 'ws://localhost:8182/';
 
