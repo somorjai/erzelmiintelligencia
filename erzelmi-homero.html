@@ -443,23 +443,14 @@
   const MAX = 50;
   const NEUTRAL_BAND = 3;
 
-  /*
-    Ennyi ideig marad aktív a Kinect által küldött irány.
-    A meglévő KinectBridge csak egyszer küld left/right üzenetet,
-    ezért egy időzített "virtuális gombnyomást" alkalmazunk.
-  */
-  const KINECT_HOLD_MS = 2500;
-
   let value = 0;
   let direction = 0;
+  let motionSpeed = 0;
   let holdSeconds = 0;
   let lastTime = null;
 
   let keyLeftDown = false;
   let keyRightDown = false;
-
-  let kinectDirection = 0;
-  let kinectTimer = null;
 
   const mercuryEl = document.getElementById('mercury');
   const bulbEl = document.getElementById('bulb');
@@ -555,7 +546,7 @@
     if (currentValue > NEUTRAL_BAND && currentValue <= 15) {
       return {
         label: 'Nyugodtan derűs',
-        sub: 'Enyhén jobbra nyújtott kéz',
+        sub: 'Lassan felfelé mozgó jobb kéz',
         glow: 'rgba(242, 163, 65, 0.3)'
       };
     }
@@ -563,7 +554,7 @@
     if (currentValue > 15 && currentValue <= 32) {
       return {
         label: 'Vidám',
-        sub: 'Határozottan jobbra nyújtott kéz',
+        sub: 'Felfelé mozgó jobb kéz',
         glow: 'rgba(217, 98, 47, 0.4)'
       };
     }
@@ -571,7 +562,7 @@
     if (currentValue > 32) {
       return {
         label: 'Lelkes / Izgatott',
-        sub: 'Teljesen kinyújtott jobb kéz',
+        sub: 'Gyorsan felfelé mozgó jobb kéz',
         glow: 'rgba(217, 98, 47, 0.55)'
       };
     }
@@ -579,7 +570,7 @@
     if (currentValue < -NEUTRAL_BAND && currentValue >= -15) {
       return {
         label: 'Csendes',
-        sub: 'Enyhén balra nyújtott kéz',
+        sub: 'Lassan felfelé mozgó bal kéz',
         glow: 'rgba(111, 179, 216, 0.3)'
       };
     }
@@ -587,14 +578,14 @@
     if (currentValue < -15 && currentValue >= -32) {
       return {
         label: 'Szomorkás',
-        sub: 'Határozottan balra nyújtott kéz',
+        sub: 'Felfelé mozgó bal kéz',
         glow: 'rgba(61, 124, 184, 0.4)'
       };
     }
 
     return {
       label: 'Levert / Fagyos',
-      sub: 'Teljesen kinyújtott bal kéz',
+      sub: 'Gyorsan felfelé mozgó bal kéz',
       glow: 'rgba(61, 124, 184, 0.55)'
     };
   }
@@ -660,8 +651,10 @@
         ? 'scale(1.15)'
         : 'scale(1)';
 
-    const ringMaxSeconds = 3;
-    const ringFraction = Math.min(1, holdSeconds / ringMaxSeconds);
+    /*
+      A kör töltése a valós Kinect-kézmozgás sebességét mutatja.
+    */
+    const ringFraction = Math.min(1, motionSpeed);
     const dashOffset = 126 * (1 - ringFraction);
 
     ringFg.style.strokeDashoffset = dashOffset;
@@ -674,22 +667,21 @@
           : 'var(--brass)';
   }
 
-  function updateDirection() {
-    /*
-      A billentyűzet elsőbbséget kap.
-      Ha nincs lenyomott nyíl, a Kinect által adott irány működik.
-    */
+  function updateKeyboardState() {
     if (keyRightDown && !keyLeftDown) {
       direction = 1;
+      motionSpeed = 0.55;
 
     } else if (keyLeftDown && !keyRightDown) {
       direction = -1;
-
-    } else {
-      direction = kinectDirection;
+      motionSpeed = 0.55;
     }
+  }
 
-    if (direction === 0) {
+  function stopMotionIfNoKeyIsDown() {
+    if (!keyLeftDown && !keyRightDown) {
+      direction = 0;
+      motionSpeed = 0;
       holdSeconds = 0;
     }
   }
@@ -702,18 +694,16 @@
     const dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
 
-    if (direction !== 0) {
+    if (direction !== 0 && motionSpeed > 0) {
       holdSeconds += dt;
 
-      const baseSpeed = 6;
-      const acceleration = 10;
+      /*
+        A Bridge 0..1 sebességet küld.
+        Ez 3..45 egység / másodperc változási sebességet jelent.
+      */
+      const degreesPerSecond = 3 + motionSpeed * 42;
 
-      const speed = Math.min(
-        baseSpeed + acceleration * holdSeconds,
-        40
-      );
-
-      value += direction * speed * dt;
+      value += direction * degreesPerSecond * dt;
       value = Math.max(MIN, Math.min(MAX, value));
 
     } else {
@@ -727,13 +717,13 @@
   window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') {
       keyRightDown = true;
-      updateDirection();
+      updateKeyboardState();
       event.preventDefault();
     }
 
     if (event.key === 'ArrowLeft') {
       keyLeftDown = true;
-      updateDirection();
+      updateKeyboardState();
       event.preventDefault();
     }
   });
@@ -741,19 +731,19 @@
   window.addEventListener('keyup', (event) => {
     if (event.key === 'ArrowRight') {
       keyRightDown = false;
-      updateDirection();
     }
 
     if (event.key === 'ArrowLeft') {
       keyLeftDown = false;
-      updateDirection();
     }
+
+    stopMotionIfNoKeyIsDown();
   });
 
   window.addEventListener('blur', () => {
     keyLeftDown = false;
     keyRightDown = false;
-    updateDirection();
+    stopMotionIfNoKeyIsDown();
   });
 
   function setKinectStatus(text, state) {
@@ -766,27 +756,74 @@
   }
 
   /*
-    A már elkészített KinectBridge.exe címe.
+    FONTOS:
+    Ez már a második, hőmérőhöz készült Bridge címe.
+    Nem a korábbi ws://localhost:8182/!
   */
-  const KINECT_BRIDGE_URL = 'ws://localhost:8182/';
+  const KINECT_BRIDGE_URL = 'ws://localhost:8183/';
 
-  function stopKinectDirection() {
-    kinectDirection = 0;
-    kinectTimer = null;
-    updateDirection();
+  function stopKinectMotion() {
+    /*
+      A billentyű lenyomva tartása továbbra is működhet.
+    */
+    if (!keyLeftDown && !keyRightDown) {
+      direction = 0;
+      motionSpeed = 0;
+      holdSeconds = 0;
+    }
   }
 
-  function activateKinectDirection(newDirection) {
-    kinectDirection = newDirection;
-    updateDirection();
+  function handleBridgeMessage(rawMessage) {
+    const message = String(rawMessage).trim().toLowerCase();
 
-    if (kinectTimer !== null) {
-      window.clearTimeout(kinectTimer);
+    /*
+      A Bridge ezt küldi, ha:
+      - nincs kéz váll fölött;
+      - a felemelt kéz megáll;
+      - lefelé mozog;
+      - nincs követett személy.
+    */
+    if (message === 'stop') {
+      stopKinectMotion();
+      return;
     }
 
-    kinectTimer = window.setTimeout(() => {
-      stopKinectDirection();
-    }, KINECT_HOLD_MS);
+    /*
+      Várt formátumok:
+      left:0.235
+      right:0.780
+    */
+    const parts = message.split(':');
+
+    if (parts.length !== 2) {
+      return;
+    }
+
+    const side = parts[0];
+    const speed = Number(parts[1]);
+
+    if (!Number.isFinite(speed)) {
+      return;
+    }
+
+    const normalizedSpeed = Math.max(0, Math.min(1, speed));
+
+    /*
+      Ha a felhasználó épp nyílbillentyűvel vezérel,
+      annak elsőbbsége van.
+    */
+    if (keyLeftDown || keyRightDown) {
+      return;
+    }
+
+    if (side === 'left') {
+      direction = -1;
+      motionSpeed = normalizedSpeed;
+
+    } else if (side === 'right') {
+      direction = 1;
+      motionSpeed = normalizedSpeed;
+    }
   }
 
   function connectKinectBridge() {
@@ -795,24 +832,17 @@
 
       socket.addEventListener('open', () => {
         setKinectStatus(
-          'Kinect-híd: kapcsolódva. Bal kéz = hűtés, jobb kéz = melegítés.',
+          'Kinect-híd: kapcsolódva. A kéz emelési sebessége vezérli a hőmérőt.',
           'connected'
         );
       });
 
       socket.addEventListener('message', (event) => {
-        const command = String(event.data).trim().toLowerCase();
-
-        if (command === 'left') {
-          activateKinectDirection(-1);
-
-        } else if (command === 'right') {
-          activateKinectDirection(1);
-        }
+        handleBridgeMessage(event.data);
       });
 
       socket.addEventListener('close', () => {
-        stopKinectDirection();
+        stopKinectMotion();
 
         setKinectStatus(
           'Kinect-híd: kapcsolat megszakadt; újracsatlakozás…',
@@ -824,7 +854,7 @@
 
       socket.addEventListener('error', () => {
         setKinectStatus(
-          'Kinect-híd: nem érhető el a ws://localhost:8182 címen.',
+          'Kinect-híd: nem érhető el a ws://localhost:8183 címen.',
           'error'
         );
       });
