@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>25 Kamera Szituáció</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+
+  <style>
+    :root { --accent: #ffdd66; }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #050910;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    .app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .background {
+      position: absolute;
+      inset: 0;
+      transition: background 500ms ease;
+    }
+
+    .scene-label {
+      position: fixed;
+      left: 50%;
+      top: clamp(14px, 3vh, 34px);
+      z-index: 20;
+      width: min(92vw, 980px);
+      transform: translateX(-50%);
+      padding: 12px 18px 14px;
+      border: 3px solid rgba(255,255,255,.82);
+      border-radius: 20px;
+      background: rgba(6,12,22,.56);
+      box-shadow: 0 14px 44px rgba(0,0,0,.38);
+      text-align: center;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+    }
+
+    .scene-label strong {
+      display: inline-block;
+      margin-right: 10px;
+      font-size: clamp(1.6rem, 3.6vw, 2.6rem);
+      line-height: 1;
+      color: var(--accent);
+      vertical-align: middle;
+    }
+
+    .scene-label small {
+      display: inline;
+      font-family: Arial, sans-serif;
+      font-size: clamp(1.15rem, 2.6vw, 2rem);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: .01em;
+      color: #fff;
+      vertical-align: middle;
+    }
+
+    .camera-frame {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      z-index: 5;
+      width: min(82vw, 980px);
+      height: min(70vh, 650px);
+      overflow: hidden;
+      transform: translateX(-50%);
+      border: 4px solid rgba(255,255,255,.72);
+      border-bottom: 0;
+      border-radius: 26px 26px 0 0;
+      box-shadow: 0 0 0 8px rgba(0,0,0,.2), 0 20px 70px rgba(0,0,0,.55);
+    }
+
+    canvas, video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: transparent;
+    }
+
+    video { display: none; }
+
+    .camera-tint {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(to top, rgba(0,0,0,.20), transparent 35%);
+    }
+
+    .controls {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: end;
+      gap: 10px;
+    }
+
+    .button-row { display: flex; gap: 8px; }
+
+    button {
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: rgba(5,10,18,.70);
+      box-shadow: 0 5px 16px rgba(0,0,0,.28);
+      backdrop-filter: blur(8px);
+      transition: transform 140ms ease, background 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      background: rgba(26,43,66,.84);
+    }
+
+    .counter {
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: rgba(255,255,255,.86);
+      background: rgba(0,0,0,.44);
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    .thumbnails {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: repeat(5, 34px);
+      gap: 6px;
+      padding: 9px;
+      border-radius: 14px;
+      background: rgba(4,8,14,.56);
+      box-shadow: 0 6px 22px rgba(0,0,0,.3);
+      backdrop-filter: blur(8px);
+    }
+
+    .thumb {
+      width: 34px;
+      height: 27px;
+      padding: 0;
+      border: 2px solid transparent;
+      border-radius: 7px;
+      box-shadow: none;
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .thumb.active {
+      border-color: #fff;
+      box-shadow: 0 0 0 2px var(--accent);
+      transform: scale(1.08);
+    }
+
+    .start-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(2,7,12,.86);
+      backdrop-filter: blur(12px);
+      transition: opacity 250ms ease, visibility 250ms ease;
+    }
+
+    .start-panel.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-card {
+      width: min(92vw, 500px);
+      padding: 30px;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 22px;
+      text-align: center;
+      background: linear-gradient(145deg, rgba(255,255,255,.13), rgba(0,0,0,.3));
+      box-shadow: 0 24px 80px rgba(0,0,0,.5);
+    }
+
+    .start-card .icon { font-size: 68px; }
+
+    .start-card h2 {
+      margin: 13px 0 8px;
+      font-size: clamp(1.25rem, 3.5vw, 1.85rem);
+    }
+
+    .start-card p {
+      margin: 0 0 22px;
+      color: rgba(255,255,255,.78);
+      line-height: 1.55;
+      font-size: .95rem;
+    }
+
+    .start-button {
+      background: linear-gradient(135deg, #3969e8, #a64fe4);
+    }
+
+    .status {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      z-index: 40;
+      max-width: min(88vw, 640px);
+      transform: translateX(-50%);
+      padding: 9px 14px;
+      border-radius: 999px;
+      color: #e8f1ff;
+      background: rgba(0,0,0,.48);
+      font-size: 12px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .status.ok { color: #b5ffca; }
+    .status.error { color: #ffb8b2; }
+
+    .scene-decor {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .cloud, .star, .tree, .building, .bubble, .snow, .leaf, .fish {
+      position: absolute;
+    }
+
+    .cloud {
+      width: 170px;
+      height: 48px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.72);
+      filter: blur(1px);
+    }
+
+    .cloud::before, .cloud::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: inherit;
+    }
+
+    .cloud::before {
+      width: 70px;
+      height: 70px;
+      left: 26px;
+      bottom: 10px;
+    }
+
+    .cloud::after {
+      width: 86px;
+      height: 86px;
+      right: 20px;
+      bottom: 5px;
+    }
+
+    .star {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 8px #fff;
+    }
+
+    .tree {
+      width: 60px;
+      height: 150px;
+      border-radius: 50% 50% 20% 20%;
+      background: #17663c;
+      box-shadow:
+        0 -30px 0 10px #288852,
+        18px -18px 0 4px #1c7446,
+        -18px -9px 0 2px #207c4c;
+    }
+
+    .tree::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      top: 100px;
+      width: 14px;
+      height: 68px;
+      border-radius: 8px;
+      background: #5f3c24;
+    }
+
+    .building {
+      width: 100px;
+      height: 240px;
+      bottom: 0;
+      background: rgba(23,38,67,.88);
+      border: 3px solid rgba(255,255,255,.08);
+      box-shadow:
+        22px 0 0 rgba(16,28,54,.82),
+        -20px 20px 0 rgba(14,26,48,.78);
+    }
+
+    .bubble {
+      width: 26px;
+      height: 26px;
+      border: 2px solid rgba(255,255,255,.58);
+      border-radius: 50%;
+      box-shadow: inset 4px 4px 8px rgba(255,255,255,.34);
+    }
+
+    .snow {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 0 8px rgba(255,255,255,.8);
+    }
+
+    .leaf {
+      width: 22px;
+      height: 12px;
+      border-radius: 100% 0 100% 0;
+      background: #f2a43d;
+      transform: rotate(35deg);
+    }
+
+    .fish {
+      font-size: 34px;
+      filter: drop-shadow(0 4px 7px rgba(0,0,0,.3));
+    }
+
+    @media (max-width: 760px) {
+      .camera-frame {
+        width: 94vw;
+        height: 58vh;
+      }
+
+      .thumbnails {
+        grid-template-columns: repeat(5, 28px);
+        gap: 4px;
+        left: 8px;
+        bottom: 8px;
+        padding: 6px;
+      }
+
+      .thumb {
+        width: 28px;
+        height: 24px;
+        font-size: 13px;
+      }
+
+      .controls {
+        right: 8px;
+        bottom: 8px;
+      }
+
+      .status { bottom: 116px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <div class="background" id="background">
+      <div class="scene-decor" id="sceneDecor"></div>
+    </div>
+
+    <div class="scene-label">
+      <strong id="sceneIcon">🏫</strong>
+      <small id="sceneDescription">
+        A tanár éppen egy érdekes kísérletet mutat az osztálynak.
+      </small>
+    </div>
+
+    <div class="camera-frame">
+      <video id="camera" autoplay playsinline muted></video>
+      <canvas id="personCanvas"></canvas>
+      <div class="camera-tint"></div>
+    </div>
+
+    <div class="thumbnails" id="thumbnails"></div>
+
+    <div class="controls">
+      <div class="counter" id="counter">1 / 25</div>
+
+      <div class="button-row">
+        <button type="button" id="prevButton">← Előző</button>
+        <button type="button" id="nextButton">Következő →</button>
+      </div>
+    </div>
+
+    <div class="status" id="status">
+      Kamera: nincs elindítva
+    </div>
+  </main>
+
+  <div class="start-panel" id="startPanel">
+    <section class="start-card">
+      <div class="icon">🟢</div>
+      <h2>Zöld háttér mód</h2>
+      <p>
+        A laptopkamera automatikusan eltünteti a személyek mögötti hátteret,
+        és a kiválasztott szituáció elé helyezi őket.
+      </p>
+      <button class="start-button" type="button" id="startButton">
+        Kamera engedélyezése
+      </button>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const background = document.getElementById('background');
+      const sceneDecor = document.getElementById('sceneDecor');
+      const camera = document.getElementById('camera');
+      const personCanvas = document.getElementById('personCanvas');
+      const sceneIcon = document.getElementById('sceneIcon');
+      const sceneDescription = document.getElementById('sceneDescription');
+      const counter = document.getElementById('counter');
+      const thumbnails = document.getElementById('thumbnails');
+      const statusBox = document.getElementById('status');
+      const startPanel = document.getElementById('startPanel');
+      const startButton = document.getElementById('startButton');
+      const prevButton = document.getElementById('prevButton');
+      const nextButton = document.getElementById('nextButton');
+
+      const scenes = [
+        { name: 'Iskolai tanterem', icon: '🏫', description: 'A tanár éppen egy érdekes kísérletet mutat az osztálynak.', background: 'linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)', decor: 'classroom' },
+        { name: 'Varázserdő', icon: '🌲', description: 'Egy csillogó ösvényen indultok el, hogy megtaláljátok az elveszett tündérkulcsot.', background: 'radial-gradient(circle at 50% 25%, #a6f3b9, transparent 24%), linear-gradient(#357d57, #103d2c)', decor: 'forest' },
+        { name: 'Tengerpart', icon: '🏖️', description: 'Homokvárépítő versenyt rendeztek, de egy játékos hullám közeledik felétek.', background: 'linear-gradient(#78d9ff 0 55%, #55bce1 55% 66%, #f3d08a 66% 100%)', decor: 'beach' },
+        { name: 'Világűr', icon: '🚀', description: 'Az űrhajótok egy új bolygó felé repül, ahol még senki sem járt előttetek.', background: 'radial-gradient(circle at 72% 24%, #ffdf7d 0 4%, transparent 5%), linear-gradient(135deg, #101536, #02030d 72%)', decor: 'space' },
+        { name: 'Hegyi túra', icon: '🏔️', description: 'A csapat a hegytető felé kapaszkodik, hogy együtt nézze meg a naplementét.', background: 'linear-gradient(#9ed9ff 0 52%, #7ca27b 52% 100%)', decor: 'mountain' },
+        { name: 'Városi park', icon: '🌳', description: 'A parkban egy elveszett kiskutyának segítetek megtalálni a gazdáját.', background: 'linear-gradient(#8bd4ff 0 58%, #529d50 58% 100%)', decor: 'park' },
+        { name: 'Múzeumi galéria', icon: '🖼️', description: 'Az egyik festményen egy titkos jelre bukkantok, amely egy régi kincshez vezethet.', background: 'linear-gradient(90deg, #493a31, #806856 48%, #3b2d26)', decor: 'museum' },
+        { name: 'Könyvtár', icon: '📚', description: 'Egy régi mesekönyv lapjai között egy különleges térképet találtok.', background: 'linear-gradient(#6e4d32, #2e1c12)', decor: 'library' },
+        { name: 'Színházi színpad', icon: '🎭', description: 'Mindjárt kezdődik az előadás, és nektek kell megmentenetek a főszereplő jelmezét.', background: 'radial-gradient(circle at 50% 20%, #ffe47b, transparent 16%), linear-gradient(#40204d, #130914)', decor: 'theatre' },
+        { name: 'Középkori vár', icon: '🏰', description: 'A vár kapuja bezárult, ezért együtt kell megfejtenetek a lovag rejtvényét.', background: 'linear-gradient(#8da7d5 0 62%, #567353 62% 100%)', decor: 'castle' },
+        { name: 'Őserdő', icon: '🦜', description: 'A fák között egy ritka, színes madár hangját követve kerestek egy titkos vízesést.', background: 'radial-gradient(circle at 20% 20%, #c5ff8e, transparent 14%), linear-gradient(#397d3a, #0e3a25)', decor: 'jungle' },
+        { name: 'Sivatag', icon: '🏜️', description: 'A homokdűnék között egy régi oázist kerestek, mielőtt lemegy a nap.', background: 'radial-gradient(circle at 74% 20%, #fff1a5 0 6%, transparent 7%), linear-gradient(#f4b565 0 62%, #d98742 62% 100%)', decor: 'desert' },
+        { name: 'Víz alatti világ', icon: '🐠', description: 'Egy barátságos halraj megmutatja nektek a korallzátony rejtett ösvényét.', background: 'linear-gradient(#45c9df 0%, #1676b9 58%, #0b3d77 100%)', decor: 'underwater' },
+        { name: 'Sarkvidék', icon: '❄️', description: 'A jégen egy kis fóka keresi a társait, és ti segítetek neki megtalálni őket.', background: 'linear-gradient(#d8f4ff 0 60%, #f5fcff 60% 100%)', decor: 'arctic' },
+        { name: 'Dinoszauruszok földje', icon: '🦖', description: 'Egy dinoszaurusztojást kell biztonságos helyre vinnetek a közeledő eső előtt.', background: 'radial-gradient(circle at 72% 18%, #ffd65c 0 5%, transparent 6%), linear-gradient(#a8ce75 0 58%, #657f3e 58% 100%)', decor: 'dino' },
+        { name: 'Tűzoltóállomás', icon: '🚒', description: 'Megszólal a riasztó, és a tűzoltócsapatnak gyorsan össze kell készülnie.', background: 'linear-gradient(#8bc5e8 0 58%, #b9b8ae 58% 100%)', decor: 'firestation' },
+        { name: 'Repülőtér', icon: '✈️', description: 'Egy utas elhagyta a bőröndjét, ezért segítetek megtalálni, mielőtt felszáll a gépe.', background: 'linear-gradient(#9edcff 0 65%, #6b7781 65% 100%)', decor: 'airport' },
+        { name: 'Meseország', icon: '🦄', description: 'A szivárvány végén egy kívánságdoboz vár rátok, de csak együtt nyithatjátok ki.', background: 'linear-gradient(135deg, #fd9ed0, #a784ed 48%, #75d7ef)', decor: 'fairytale' },
+        { name: 'Laboratórium', icon: '🔬', description: 'Egy vidám tudományos kísérlethez kell kiválasztanotok a megfelelő színes folyadékokat.', background: 'radial-gradient(circle at 50% 15%, #a3fff4, transparent 13%), linear-gradient(#30596b, #102635)', decor: 'laboratory' },
+        { name: 'Focipálya', icon: '⚽', description: 'Az utolsó percben ti dönthetitek el, milyen csellel kerüljön a labda a kapuba.', background: 'linear-gradient(#85d8ff 0 57%, #3c9c4d 57% 100%)', decor: 'football' },
+        { name: 'Holdfelszín', icon: '🌕', description: 'A holdjáró mellett furcsa lábnyomokat találtok, és ki kell derítenetek, ki hagyta őket.', background: 'radial-gradient(circle at 73% 20%, #fff7bb 0 8%, transparent 9%), linear-gradient(#131426 0 63%, #969696 63% 100%)', decor: 'moon' },
+        { name: 'Kalózhajó', icon: '🏴‍☠️', description: 'A kincses térkép egyik darabját a hajó fedélzetén rejtették el.', background: 'linear-gradient(#89d8ff 0 48%, #1674b0 48% 100%)', decor: 'pirate' },
+        { name: 'Téli falucska', icon: '⛄', description: 'A hóesésben segítetek feldíszíteni a falu főterén álló nagy fenyőfát.', background: 'linear-gradient(#b8e8ff 0 59%, #f7fcff 59% 100%)', decor: 'winter' },
+        { name: 'Éjszakai város', icon: '🌃', description: 'A városi fények között egy titokzatos üzenetet kell eljuttatnotok egy baráthoz.', background: 'linear-gradient(#10142f 0 64%, #17223a 64% 100%)', decor: 'nightcity' },
+        { name: 'Virágos rét', icon: '🌼', description: 'A réten egy méhecske elvesztette a kaptárhoz vezető útját, és ti mutattok neki irányt.', background: 'linear-gradient(#98dfff 0 54%, #4ca956 54% 100%)', decor: 'meadow' }
+      ];
+
+      let currentScene = 0;
+      let stream = null;
+      let segmentation = null;
+      let animationId = null;
+      const canvasContext = personCanvas.getContext('2d');
+
+      function setStatus(text, state) {
+        statusBox.textContent = text;
+        statusBox.className = 'status';
+        if (state) statusBox.classList.add(state);
+      }
+
+      function addElement(className, style, text = '') {
+        const element = document.createElement('div');
+        element.className = className;
+        element.textContent = text;
+        Object.assign(element.style, style);
+        sceneDecor.appendChild(element);
+      }
+
+      function addCloud(left, top, scale = 1) {
+        addElement('cloud', {
+          left: `${left}%`,
+          top: `${top}%`,
+          transform: `scale(${scale})`,
+          opacity: String(.62 + Math.random() * .25)
+        });
+      }
+
+      function addStars(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('star', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 62}%`,
+            transform: `scale(${.45 + Math.random() * 1.4})`
+          });
+        }
+      }
+
+      function addSnow(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('snow', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 68}%`,
+            transform: `scale(${.5 + Math.random() * 1.5})`
+          });
+        }
+      }
+
+      function addLeaves(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('leaf', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 65}%`,
+            transform: `rotate(${Math.random() * 360}deg) scale(${.55 + Math.random()})`
+          });
+        }
+      }
+
+      function addTrees(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('tree', {
+            left: `${i * (100 / count) + Math.random() * 7}%`,
+            bottom: `${Math.random() * 6 - 4}%`,
+            transform: `scale(${.65 + Math.random() * .8})`,
+            transformOrigin: 'bottom'
+          });
+        }
+      }
+
+      function addBuildings(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('building', {
+            left: `${i * (100 / count) + Math.random() * 6}%`,
+            height: `${150 + Math.random() * 220}px`,
+            transform: `scale(${.7 + Math.random() * .55})`,
+            transformOrigin: 'bottom'
+          });
+        }
+      }
+
+      function decorateScene(type) {
+        sceneDecor.innerHTML = '';
+
+        switch (type) {
+          case 'classroom':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:5%;top:20%;width:28%;height:23%;background:#2b5b37;border:12px solid #8a603a;box-shadow:0 0 0 3px rgba(255,255,255,.14) inset"></div>
+              <div style="position:absolute;right:7%;top:20%;width:18%;height:28%;background:#e5f4ff;border:8px solid #fff;box-shadow:inset 0 0 0 2px #78b3e1"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:17%;background:repeating-linear-gradient(90deg,#c99361 0 70px,#a87449 70px 74px)"></div>`;
+            break;
+
+          case 'forest':
+          case 'jungle':
+            addTrees(type === 'jungle' ? 11 : 7);
+            addLeaves(type === 'jungle' ? 24 : 12);
+            break;
+
+          case 'beach':
+            addCloud(8, 15, .7);
+            addCloud(68, 11, .9);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:8%;bottom:22%;font-size:110px">🌴</div>
+              <div style="position:absolute;right:8%;bottom:18%;font-size:70px">⛱️</div>
+              <div style="position:absolute;left:56%;bottom:17%;font-size:58px">🐚</div>`;
+            break;
+
+          case 'space':
+          case 'moon':
+            addStars(65);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:10%;top:20%;font-size:78px">🪐</div>
+              <div style="position:absolute;right:10%;top:38%;font-size:48px">🚀</div>`;
+            break;
+
+          case 'mountain':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;bottom:18%;width:0;height:0;border-left:23vw solid transparent;border-right:23vw solid transparent;border-bottom:37vh solid #677f91"></div>
+              <div style="position:absolute;right:-4%;bottom:15%;width:0;height:0;border-left:27vw solid transparent;border-right:27vw solid transparent;border-bottom:45vh solid #4e6b7d"></div>
+              <div style="position:absolute;left:17%;bottom:51%;width:0;height:0;border-left:7vw solid transparent;border-right:7vw solid transparent;border-bottom:11vh solid #f4fbff"></div>`;
+            addCloud(65, 14, .8);
+            break;
+
+          case 'park':
+          case 'meadow':
+            addTrees(type === 'park' ? 6 : 3);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:8%;bottom:16%;font-size:65px">🪑</div>
+              <div style="position:absolute;right:10%;bottom:16%;font-size:84px">🌷</div>
+              <div style="position:absolute;left:68%;bottom:20%;font-size:66px">🌼</div>`;
+            break;
+
+          case 'museum':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:8%;top:18%;width:22%;height:31%;border:12px solid #dab878;background:linear-gradient(135deg,#f06e53,#5643a6)"></div>
+              <div style="position:absolute;right:8%;top:20%;width:21%;height:29%;border:12px solid #dab878;background:linear-gradient(135deg,#43a7b5,#e9d25c)"></div>
+              <div style="position:absolute;left:40%;top:22%;width:20%;height:40%;border:12px solid #dab878;background:linear-gradient(135deg,#664226,#c49361)"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:18%;background:#34241e"></div>`;
+            break;
+
+          case 'library':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:3%;top:10%;width:28%;height:65%;background:repeating-linear-gradient(90deg,#974d35 0 12px,#e0a14f 12px 22px,#43728a 22px 32px,#704881 32px 41px);border:12px solid #422617"></div>
+              <div style="position:absolute;right:3%;top:10%;width:28%;height:65%;background:repeating-linear-gradient(90deg,#538b78 0 12px,#debc55 12px 22px,#a75e4c 22px 32px,#536797 32px 41px);border:12px solid #422617"></div>
+              <div style="position:absolute;left:43%;bottom:12%;font-size:110px">📖</div>`;
+            break;
+
+          case 'theatre':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;top:0;bottom:0;width:20%;background:linear-gradient(90deg,#540d23,#a41642 60%,transparent);clip-path:polygon(0 0,100% 0,72% 100%,0 100%)"></div>
+              <div style="position:absolute;right:0;top:0;bottom:0;width:20%;background:linear-gradient(270deg,#540d23,#a41642 60%,transparent);clip-path:polygon(0 0,100% 0,100% 100%,28% 100%)"></div>
+              <div style="position:absolute;left:43%;top:14%;font-size:100px">🎭</div>`;
+            break;
+
+          case 'castle':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:13%;bottom:15%;font-size:180px">🏰</div>
+              <div style="position:absolute;right:8%;bottom:19%;font-size:105px">🐉</div>`;
+            addCloud(64, 14, .7);
+            break;
+
+          case 'desert':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:-6%;bottom:17%;width:65%;height:25%;border-radius:50%;background:#dc934b;transform:rotate(-9deg)"></div>
+              <div style="position:absolute;right:-8%;bottom:14%;width:68%;height:27%;border-radius:50%;background:#e9aa58;transform:rotate(9deg)"></div>
+              <div style="position:absolute;left:15%;bottom:18%;font-size:120px">🌵</div>
+              <div style="position:absolute;right:17%;bottom:20%;font-size:80px">🐪</div>`;
+            break;
+
+          case 'underwater':
+            for (let i = 0; i < 18; i++) {
+              addElement('bubble', {
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 75}%`,
+                transform: `scale(${.35 + Math.random() * 1.3})`
+              });
+            }
+            for (let i = 0; i < 7; i++) {
+              addElement('fish', {
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 63}%`
+              }, i % 2 ? '🐠' : '🐟');
+            }
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:4%;bottom:8%;font-size:95px">🪸</div>
+              <div style="position:absolute;right:6%;bottom:9%;font-size:75px">🐙</div>`;
+            break;
+
+          case 'arctic':
+          case 'winter':
+            addSnow(50);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:7%;bottom:14%;font-size:105px">${type === 'arctic' ? '🐻‍❄️' : '⛄'}</div>
+              <div style="position:absolute;right:8%;bottom:13%;font-size:80px">🏠</div>`;
+            break;
+
+          case 'dino':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:-5%;bottom:16%;width:54%;height:25%;border-radius:50%;background:#6c803d;transform:rotate(-8deg)"></div>
+              <div style="position:absolute;right:-4%;bottom:13%;width:58%;height:28%;border-radius:50%;background:#7f923e;transform:rotate(8deg)"></div>
+              <div style="position:absolute;left:12%;bottom:14%;font-size:135px">🦖</div>
+              <div style="position:absolute;right:12%;bottom:21%;font-size:100px">🦕</div>`;
+            break;
+
+          case 'firestation':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:16%;width:42%;height:40%;background:#cb443b;border:10px solid #f2dfbf"></div>
+              <div style="position:absolute;left:17%;top:36%;font-size:88px">🚒</div>
+              <div style="position:absolute;right:10%;bottom:18%;font-size:105px">🔥</div>`;
+            break;
+
+          case 'airport':
+            addCloud(8, 16, .7);
+            addCloud(64, 10, .8);
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:24%;background:#3f4b51"></div>
+              <div style="position:absolute;left:10%;bottom:31%;font-size:140px">✈️</div>
+              <div style="position:absolute;right:12%;bottom:19%;font-size:75px">🧳</div>`;
+            break;
+
+          case 'fairytale':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:15%;font-size:150px">🏰</div>
+              <div style="position:absolute;right:11%;bottom:21%;font-size:100px">🦄</div>
+              <div style="position:absolute;left:55%;top:15%;font-size:75px">🌈</div>`;
+            break;
+
+          case 'laboratory':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:17%;font-size:120px">🧪</div>
+              <div style="position:absolute;right:13%;bottom:16%;font-size:115px">🔬</div>
+              <div style="position:absolute;left:40%;top:17%;font-size:75px">⚛️</div>`;
+            break;
+
+          case 'football':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:42%;background:repeating-linear-gradient(90deg,#31974a 0 11%,#3eac58 11% 22%);border-top:4px solid rgba(255,255,255,.8)"></div>
+              <div style="position:absolute;left:12%;bottom:20%;font-size:105px">⚽</div>
+              <div style="position:absolute;right:11%;bottom:21%;font-size:95px">🥅</div>`;
+            break;
+
+          case 'pirate':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(#2788c5,#125486)"></div>
+              <div style="position:absolute;left:22%;bottom:17%;font-size:150px">🏴‍☠️</div>
+              <div style="position:absolute;right:9%;bottom:22%;font-size:80px">🦜</div>`;
+            break;
+
+          case 'nightcity':
+            addStars(40);
+            addBuildings(7);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:50%;top:22%;font-size:70px">🌙</div>`;
+            break;
+        }
+      }
+
+      function renderScene() {
+        const scene = scenes[currentScene];
+
+        background.style.background = scene.background;
+        sceneIcon.textContent = scene.icon;
+        sceneDescription.textContent = scene.description;
+        counter.textContent = `${currentScene + 1} / ${scenes.length}`;
+
+        decorateScene(scene.decor);
+
+        document.querySelectorAll('.thumb').forEach((button, index) => {
+          button.classList.toggle('active', index === currentScene);
+        });
+      }
+
+      function changeScene(offset) {
+        currentScene = (currentScene + offset + scenes.length) % scenes.length;
+        renderScene();
+      }
+
+      function buildThumbnails() {
+        scenes.forEach((scene, index) => {
+          const button = document.createElement('button');
+          button.className = 'thumb';
+          button.type = 'button';
+          button.textContent = scene.icon;
+          button.title = scene.name;
+          button.setAttribute('aria-label', `${index + 1}. ${scene.name}`);
+          button.addEventListener('click', () => {
+            currentScene = index;
+            renderScene();
+          });
+          thumbnails.appendChild(button);
+        });
+      }
+
+      function drawPerson(results) {
+        const width = camera.videoWidth;
+        const height = camera.videoHeight;
+
+        if (!width || !height) return;
+
+        if (personCanvas.width !== width || personCanvas.height !== height) {
+          personCanvas.width = width;
+          personCanvas.height = height;
+        }
+
+        canvasContext.clearRect(0, 0, personCanvas.width, personCanvas.height);
+
+        if (!results.segmentationMask) {
+          canvasContext.drawImage(results.image, 0, 0, personCanvas.width, personCanvas.height);
+          return;
+        }
+
+        canvasContext.save();
+        canvasContext.drawImage(results.segmentationMask, 0, 0, personCanvas.width, personCanvas.height);
+        canvasContext.globalCompositeOperation = 'source-in';
+        canvasContext.drawImage(results.image, 0, 0, personCanvas.width, personCanvas.height);
+        canvasContext.restore();
+      }
+
+      function processFrame() {
+        if (camera.readyState >= 2 && camera.videoWidth > 0 && segmentation) {
+          segmentation.send({ image: camera });
+        }
+        animationId = requestAnimationFrame(processFrame);
+      }
+
+      function initializeSegmentation() {
+        if (typeof SelfieSegmentation === 'undefined') {
+          setStatus('A háttéreltávolító modul nem töltődött be. Ellenőrizd az internetkapcsolatot.', 'error');
+          return false;
+        }
+
+        segmentation = new SelfieSegmentation({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+        });
+
+        segmentation.setOptions({
+          modelSelection: 1,
+          selfieMode: false
+        });
+
+        segmentation.onResults(drawPerson);
+
+        return true;
+      }
+
+      async function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus('A böngésző nem támogatja a kamera elérését ezen az oldalon.', 'error');
+          return;
+        }
+
+        startButton.disabled = true;
+        startButton.textContent = 'Kamera engedélyezése…';
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'user',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+
+          camera.srcObject = stream;
+          await camera.play();
+
+          const segmentationStarted = initializeSegmentation();
+
+          if (segmentationStarted) {
+            await segmentation.initialize();
+            processFrame();
+            setStatus('Zöld háttér mód aktív: a személyek háttere eltűnik.', 'ok');
+          } else {
+            personCanvas.style.display = 'none';
+            camera.style.display = 'block';
+            setStatus('A kamera működik, de a háttéreltávolítás nem indult el.', 'error');
+          }
+
+          startPanel.classList.add('hidden');
+
+        } catch (error) {
+          console.error(error);
+
+          let message = 'Nem sikerült elérni a laptopkamerát.';
+
+          if (error.name === 'NotAllowedError') {
+            message = 'A böngészőben le van tiltva a kameraengedély.';
+          } else if (error.name === 'NotFoundError') {
+            message = 'Nem található használható laptopkamera.';
+          }
+
+          setStatus(message, 'error');
+          startButton.disabled = false;
+          startButton.textContent = 'Kamera engedélyezése';
+        }
+      }
+
+      startButton.addEventListener('click', startCamera);
+      prevButton.addEventListener('click', () => changeScene(-1));
+      nextButton.addEventListener('click', () => changeScene(1));
+
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          changeScene(1);
+        }
+
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          changeScene(-1);
+        }
+      });
+
+      window.addEventListener('beforeunload', () => {
+        if (animationId) cancelAnimationFrame(animationId);
+        if (stream) stream.getTracks().forEach(track => track.stop());
+      });
+
+      buildThumbnails();
+      renderScene();
+    })();
+  </script>
+</body>
+</html>
