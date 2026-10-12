@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kinect Hangvizualizáció</title>
+
+  <style>
+    :root {
+      --level: 0;
+      --hue: 120;
+      --bg: #07130d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: #f4fff5;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    .visualizer {
+      position: relative;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(
+          circle at 50% 50%,
+          hsl(var(--hue) 80% 25% / calc(0.12 + var(--level) * 0.24)),
+          transparent calc(22% + var(--level) * 22%)
+        ),
+        radial-gradient(
+          ellipse at 50% 110%,
+          hsl(var(--hue) 90% 40% / 0.18),
+          transparent 60%
+        ),
+        #07130d;
+      transition: background 120ms linear;
+    }
+
+    .grid {
+      position: absolute;
+      inset: -30vmax;
+      z-index: -3;
+      opacity: calc(0.10 + var(--level) * 0.14);
+      background-image:
+        linear-gradient(
+          hsl(var(--hue) 85% 55% / 0.30) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          90deg,
+          hsl(var(--hue) 85% 55% / 0.30) 1px,
+          transparent 1px
+        );
+      background-size: 42px 42px;
+      transform:
+        perspective(650px)
+        rotateX(64deg)
+        translateY(23%);
+      transform-origin: center bottom;
+      mask-image:
+        linear-gradient(
+          to bottom,
+          transparent 0%,
+          #000 44%,
+          transparent 100%
+        );
+    }
+
+    .orb {
+      width: clamp(140px, 25vw, 280px);
+      aspect-ratio: 1;
+      position: relative;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(
+          circle at 34% 28%,
+          rgba(255, 255, 255, 0.94) 0 2%,
+          hsl(var(--hue) 100% 78%) 7%,
+          hsl(var(--hue) 88% 47%) 35%,
+          hsl(var(--hue) 88% 17%) 72%,
+          rgba(0, 0, 0, 0.65) 100%
+        );
+      box-shadow:
+        0 0 calc(20px + var(--level) * 65px)
+          hsl(var(--hue) 95% 50% / calc(0.30 + var(--level) * 0.55)),
+        inset -22px -28px 40px rgba(0, 0, 0, 0.34),
+        inset 10px 12px 22px rgba(255, 255, 255, 0.22);
+      transform:
+        scale(calc(0.82 + var(--level) * 0.52))
+        rotate(calc(var(--level) * 10deg));
+      transition:
+        transform 75ms linear,
+        background 120ms linear,
+        box-shadow 120ms linear;
+    }
+
+    .orb::before,
+    .orb::after {
+      content: "";
+      position: absolute;
+      inset: calc(-18px - var(--level) * 55px);
+      border: 2px solid
+        hsl(var(--hue) 95% 60% / calc(0.50 - var(--level) * 0.20));
+      border-radius: 50%;
+      animation: pulse 1.8s ease-out infinite;
+    }
+
+    .orb::after {
+      animation-delay: 0.9s;
+    }
+
+    .orb-content {
+      text-align: center;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+      user-select: none;
+    }
+
+    .orb-content strong {
+      display: block;
+      font-size: clamp(2rem, 5vw, 4.5rem);
+      letter-spacing: 0.04em;
+    }
+
+    .orb-content span {
+      display: block;
+      margin-top: 4px;
+      font-size: clamp(0.72rem, 1.2vw, 0.95rem);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    .waves {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .wave {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid hsl(var(--hue) 95% 58%);
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1);
+      animation: wave-expand 1.25s ease-out forwards;
+    }
+
+    .bars {
+      position: fixed;
+      left: 50%;
+      bottom: 7%;
+      transform: translateX(-50%);
+      width: min(80vw, 760px);
+      height: 92px;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      gap: clamp(3px, 0.7vw, 8px);
+    }
+
+    .bar {
+      flex: 1;
+      max-width: 17px;
+      min-width: 4px;
+      height: 7%;
+      border-radius: 999px 999px 2px 2px;
+      background:
+        linear-gradient(
+          to top,
+          hsl(var(--hue) 95% 38%),
+          hsl(var(--hue) 100% 72%)
+        );
+      box-shadow:
+        0 0 12px hsl(var(--hue) 95% 54% / 0.48);
+      transform-origin: bottom;
+      transition:
+        height 75ms ease-out,
+        background 120ms linear,
+        box-shadow 120ms linear;
+    }
+
+    .header {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      width: min(92vw, 700px);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 2vw, 1.7rem);
+      letter-spacing: 0.06em;
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.65;
+    }
+
+    .status {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      color: #dbe9df;
+      background: rgba(0, 0, 0, 0.46);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 13px;
+      backdrop-filter: blur(8px);
+    }
+
+    .status.connected {
+      color: #aaffbb;
+      border-color: rgba(118, 255, 152, 0.38);
+    }
+
+    .status.error {
+      color: #ffb5aa;
+      border-color: rgba(255, 100, 85, 0.42);
+    }
+
+    .legend {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      text-align: right;
+      font-size: 12px;
+      line-height: 1.55;
+      opacity: 0.68;
+    }
+
+    .legend b {
+      color: hsl(var(--hue) 90% 66%);
+      font-weight: 700;
+    }
+
+    @keyframes wave-expand {
+      0% {
+        opacity: calc(0.68 + var(--level) * 0.22);
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      100% {
+        opacity: 0;
+        transform:
+          translate(-50%, -50%)
+          scale(calc(16 + var(--level) * 28));
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: calc(0.52 + var(--level) * 0.25);
+        transform: scale(0.72);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(1.65);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="visualizer" id="visualizer">
+    <div class="grid"></div>
+
+    <header class="header">
+      <h1>Kinect Hangvizualizáció</h1>
+      <p>Halk: zöld · közepes: sárga · hangos: piros</p>
+    </header>
+
+    <div class="waves" id="waves" aria-hidden="true"></div>
+
+    <div class="orb" aria-label="Aktuális hangerő">
+      <div class="orb-content">
+        <strong id="levelText">0%</strong>
+        <span id="soundText">Csend</span>
+      </div>
+    </div>
+
+    <div class="bars" id="bars" aria-hidden="true"></div>
+  </main>
+
+  <div class="status" id="status">
+    Kinect hang-híd: nincs kapcsolat
+  </div>
+
+  <div class="legend">
+    Bemenet: <b>Kinect mikrofon-array</b><br />
+    Helyi kapcsolat: <b>ws://localhost:8184</b>
+  </div>
+
+  <script>
+    (() => {
+      const visualizer = document.getElementById('visualizer');
+      const waves = document.getElementById('waves');
+      const bars = document.getElementById('bars');
+      const statusBox = document.getElementById('status');
+      const levelText = document.getElementById('levelText');
+      const soundText = document.getElementById('soundText');
+
+      const BAR_COUNT = 38;
+      const KINECT_AUDIO_BRIDGE_URL = 'ws://localhost:8184/';
+
+      let rawLevel = 0;
+      let displayLevel = 0;
+      let lastWaveTime = 0;
+
+      const barElements = [];
+
+      for (let index = 0; index < BAR_COUNT; index += 1) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bars.appendChild(bar);
+        barElements.push(bar);
+      }
+
+      function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+      }
+
+      function setStatus(text, state) {
+        statusBox.textContent = text;
+        statusBox.className = 'status';
+
+        if (state) {
+          statusBox.classList.add(state);
+        }
+      }
+
+      function levelToHue(level) {
+        /*
+          120: zöld
+          60: sárga
+          0: piros
+        */
+        return Math.round(120 - level * 120);
+      }
+
+      function levelToText(level) {
+        if (level < 0.04) return 'Csend';
+        if (level < 0.18) return 'Halk';
+        if (level < 0.40) return 'Közepes';
+        if (level < 0.68) return 'Erős';
+        return 'Nagyon hangos';
+      }
+
+      function createWave(level) {
+        const wave = document.createElement('div');
+        wave.className = 'wave';
+
+        const variationX = (Math.random() - 0.5) * level * 18;
+        const variationY = (Math.random() - 0.5) * level * 12;
+
+        wave.style.left = `calc(50% + ${variationX}%)`;
+        wave.style.top = `calc(50% + ${variationY}%)`;
+
+        waves.appendChild(wave);
+
+        window.setTimeout(() => {
+          wave.remove();
+        }, 1400);
+      }
+
+      function updateVisuals(timestamp) {
+        /*
+          Simítás: hangosodásra gyorsabban, halkulásra finomabban reagál.
+        */
+        const smoothing =
+          rawLevel > displayLevel
+            ? 0.24
+            : 0.09;
+
+        displayLevel += (rawLevel - displayLevel) * smoothing;
+
+        if (displayLevel < 0.002) {
+          displayLevel = 0;
+        }
+
+        const hue = levelToHue(displayLevel);
+
+        visualizer.style.setProperty(
+          '--level',
+          displayLevel.toFixed(3)
+        );
+
+        visualizer.style.setProperty('--hue', hue);
+
+        levelText.textContent =
+          Math.round(displayLevel * 100) + '%';
+
+        soundText.textContent = levelToText(displayLevel);
+
+        barElements.forEach((bar, index) => {
+          const centerDistance =
+            Math.abs(index - (BAR_COUNT - 1) / 2) /
+            ((BAR_COUNT - 1) / 2);
+
+          const arch = 1 - centerDistance * 0.58;
+          const noise = 0.64 + Math.random() * 0.42;
+
+          const targetHeight =
+            7 + displayLevel * 88 * arch * noise;
+
+          bar.style.height =
+            `${clamp(targetHeight, 7, 100)}%`;
+        });
+
+        const waveInterval =
+          displayLevel < 0.05
+            ? 2000
+            : Math.max(150, 900 - displayLevel * 720);
+
+        if (
+          displayLevel > 0.045 &&
+          timestamp - lastWaveTime > waveInterval
+        ) {
+          createWave(displayLevel);
+          lastWaveTime = timestamp;
+        }
+
+        window.requestAnimationFrame(updateVisuals);
+      }
+
+      function processBridgeMessage(messageText) {
+        const receivedLevel = Number(
+          String(messageText).trim()
+        );
+
+        if (!Number.isFinite(receivedLevel)) {
+          return;
+        }
+
+        rawLevel = clamp(receivedLevel, 0, 1);
+      }
+
+      function connectAudioBridge() {
+        try {
+          const socket = new WebSocket(KINECT_AUDIO_BRIDGE_URL);
+
+          socket.addEventListener('open', () => {
+            setStatus(
+              'Kinect hang-híd: kapcsolódva. Figyelem a Kinect mikrofonját.',
+              'connected'
+            );
+          });
+
+          socket.addEventListener('message', (event) => {
+            processBridgeMessage(event.data);
+          });
+
+          socket.addEventListener('close', () => {
+            rawLevel = 0;
+
+            setStatus(
+              'Kinect hang-híd: kapcsolat megszakadt; újracsatlakozás…',
+              'error'
+            );
+
+            window.setTimeout(connectAudioBridge, 3000);
+          });
+
+          socket.addEventListener('error', () => {
+            setStatus(
+              'Kinect hang-híd: nem érhető el a ws://localhost:8184 címen.',
+              'error'
+            );
+          });
+
+        } catch (error) {
+          setStatus(
+            'Kinect hang-híd: WebSocket hiba.',
+            'error'
+          );
+
+          window.setTimeout(connectAudioBridge, 3000);
+        }
+      }
+
+      window.requestAnimationFrame(updateVisuals);
+      connectAudioBridge();
+    })();
+  </script>
+</body>
+</html>
