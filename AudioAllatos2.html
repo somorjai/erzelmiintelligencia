@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kinect Hangvizualizáció</title>
+
+  <style>
+    :root {
+      --level: 0;
+      --hue: 120;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      overflow: hidden;
+      font-family: Arial, "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+      background: #06130b;
+      color: #ffffff;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      isolation: isolate;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(
+          circle at 50% 35%,
+          hsl(var(--hue) 85% 28% / calc(0.10 + var(--level) * 0.32)),
+          transparent calc(22% + var(--level) * 24%)
+        ),
+        linear-gradient(
+          180deg,
+          hsl(var(--hue) 45% 11%),
+          hsl(calc(var(--hue) - 18) 42% 6%)
+        );
+      transition: background 150ms linear;
+    }
+
+    .sky-glow {
+      position: absolute;
+      inset: 0;
+      z-index: -5;
+      background:
+        radial-gradient(
+          ellipse at 50% -15%,
+          hsl(var(--hue) 95% 60% / calc(0.10 + var(--level) * 0.34)),
+          transparent 52%
+        );
+      pointer-events: none;
+    }
+
+    .ground {
+      position: absolute;
+      left: -10%;
+      right: -10%;
+      bottom: -22vh;
+      height: 39vh;
+      z-index: -4;
+      border-radius: 50% 50% 0 0;
+      background:
+        radial-gradient(
+          ellipse at 50% 10%,
+          hsl(var(--hue) 72% 36% / 0.68),
+          hsl(calc(var(--hue) - 22) 52% 12%) 56%,
+          #030805 100%
+        );
+      box-shadow:
+        0 -20px 70px hsl(var(--hue) 90% 52% / calc(0.08 + var(--level) * 0.22));
+      transform: scaleY(calc(0.92 + var(--level) * 0.12));
+      transition: transform 150ms ease-out;
+    }
+
+    .ground::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: calc(0.22 + var(--level) * 0.20);
+      background-image:
+        radial-gradient(circle, hsl(var(--hue) 90% 62% / 0.44) 0 1px, transparent 1.7px);
+      background-size: 22px 22px;
+      mask-image: linear-gradient(to bottom, #000, transparent 75%);
+    }
+
+    .rain-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .animal {
+      position: absolute;
+      top: -22vh;
+      left: 50%;
+      width: 1em;
+      height: 1em;
+      display: grid;
+      place-items: center;
+      line-height: 1;
+      user-select: none;
+      will-change: transform, opacity;
+      font-size: clamp(58px, 8vw, 112px);
+      filter:
+        drop-shadow(0 8px 12px rgba(0, 0, 0, 0.42));
+      animation:
+        animal-fall var(--fall-duration) cubic-bezier(0.22, 0.72, 0.38, 1)
+        forwards;
+    }
+
+    .animal::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 91%;
+      width: 72%;
+      height: 14%;
+      border-radius: 50%;
+      z-index: -1;
+      opacity: 0.55;
+      background: rgba(0, 0, 0, 0.38);
+      filter: blur(5px);
+      transform: translateX(-50%);
+      animation: animal-shadow var(--fall-duration) ease-in forwards;
+    }
+
+    .meter-card {
+      position: fixed;
+      left: 50%;
+      bottom: 7%;
+      z-index: 10;
+      width: min(82vw, 560px);
+      transform: translateX(-50%);
+      padding: 14px 16px 13px;
+      border: 1px solid hsl(var(--hue) 85% 70% / 0.28);
+      border-radius: 16px;
+      background: rgba(0, 0, 0, 0.34);
+      box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10);
+      backdrop-filter: blur(10px);
+    }
+
+    .meter-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: baseline;
+    }
+
+    .level-number {
+      font-size: clamp(1.45rem, 3.3vw, 2.3rem);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .level-label {
+      font-size: clamp(0.72rem, 1.3vw, 0.92rem);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.88;
+      text-align: right;
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 14px;
+      margin-top: 11px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.36);
+    }
+
+    .meter-fill {
+      width: calc(var(--level) * 100%);
+      height: 100%;
+      border-radius: inherit;
+      background:
+        linear-gradient(
+          90deg,
+          #39cf67 0%,
+          #dce34f 44%,
+          #ffb237 68%,
+          #f43f35 100%
+        );
+      box-shadow:
+        0 0 16px hsl(var(--hue) 100% 58% / 0.88);
+      transition: width 70ms linear;
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 7px;
+      color: rgba(255, 255, 255, 0.70);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 12;
+      padding: 9px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      color: #dbe9df;
+      background: rgba(0, 0, 0, 0.46);
+      font-size: 13px;
+      backdrop-filter: blur(8px);
+    }
+
+    .status.connected {
+      color: #aaffbb;
+      border-color: rgba(118, 255, 152, 0.38);
+    }
+
+    .status.error {
+      color: #ffb5aa;
+      border-color: rgba(255, 100, 85, 0.42);
+    }
+
+    .info {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 12;
+      text-align: right;
+      font-size: 11px;
+      line-height: 1.55;
+      opacity: 0.76;
+    }
+
+    .info strong {
+      color: hsl(var(--hue) 95% 72%);
+    }
+
+    @keyframes animal-fall {
+      0% {
+        opacity: 0;
+        transform:
+          translate3d(calc(var(--start-x) * 1vw), -18vh, 0)
+          rotate(var(--start-rotate))
+          scale(0.70);
+      }
+
+      8% {
+        opacity: 1;
+      }
+
+      80% {
+        opacity: 1;
+        transform:
+          translate3d(calc(var(--end-x) * 1vw), 80vh, 0)
+          rotate(var(--end-rotate))
+          scale(1);
+      }
+
+      100% {
+        opacity: 0;
+        transform:
+          translate3d(calc(var(--end-x) * 1vw), 95vh, 0)
+          rotate(var(--end-rotate))
+          scale(0.87);
+      }
+    }
+
+    @keyframes animal-shadow {
+      0% {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.2);
+      }
+
+      78% {
+        opacity: 0.50;
+        transform: translateX(-50%) scale(1);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateX(-50%) scale(1.25);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .meter-card {
+        bottom: 9%;
+      }
+
+      .info {
+        display: none;
+      }
+
+      .status {
+        left: 10px;
+        bottom: 10px;
+        font-size: 11px;
+      }
+
+      .animal {
+        font-size: clamp(48px, 14vw, 88px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animal,
+      .animal::after {
+        animation-duration: 0.01ms !important;
+      }
+
+      * {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="stage" id="stage">
+    <div class="sky-glow"></div>
+    <div class="ground"></div>
+
+    <div
+      class="rain-layer"
+      id="rainLayer"
+      aria-label="Hangra megjelenő állatfigurák"
+    ></div>
+
+    <section class="meter-card" aria-label="Hangerőmérő">
+      <div class="meter-top">
+        <div class="level-number" id="levelNumber">0%</div>
+        <div class="level-label" id="levelLabel">Csend</div>
+      </div>
+
+      <div class="meter-track">
+        <div class="meter-fill"></div>
+      </div>
+
+      <div class="scale">
+        <span>Halk</span>
+        <span>Közepes</span>
+        <span>Hangos</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="status" id="status">
+    Kinect hang-híd: nincs kapcsolat
+  </div>
+
+  <div class="info">
+    Bemenet: <strong>Kinect mikrofon-array</strong><br />
+    20 állatfigura · WebSocket: <strong>8184</strong>
+  </div>
+
+  <script>
+    (() => {
+      const stage = document.getElementById('stage');
+      const rainLayer = document.getElementById('rainLayer');
+      const statusBox = document.getElementById('status');
+      const levelNumber = document.getElementById('levelNumber');
+      const levelLabel = document.getElementById('levelLabel');
+
+      const KINECT_AUDIO_BRIDGE_URL = 'ws://localhost:8184/';
+
+      /*
+        A csoportok hangossági sorrendben vannak.
+        Összesen pontosan 20 állatfigura található bennük.
+
+        Halk: rovarok és apró állatok.
+        Hangos: egyre nagyobb állatok.
+        Legnagyobb hangerő: bálna, mamut, T-Rex.
+      */
+      const animalGroups = [
+        ['🐜', '🕷️', '🦗'],
+        ['🐝', '🦋'],
+        ['🐭', '🐹', '🐸'],
+        ['🐰', '🐱', '🐶'],
+        ['🦊', '🐷'],
+        ['🐮', '🐼'],
+        ['🐨', '🐵'],
+        ['🐻', '🐯'],
+        ['🦁', '🦓'],
+        ['🦒', '🐘', '🐋', '🦣', '🦖']
+      ];
+
+      let rawLevel = 0;
+      let displayLevel = 0;
+      let lastSpawnTime = 0;
+
+      function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+      }
+
+      function randomBetween(minimum, maximum) {
+        return Math.random() * (maximum - minimum) + minimum;
+      }
+
+      function randomItem(items) {
+        return items[Math.floor(Math.random() * items.length)];
+      }
+
+      function setStatus(text, state) {
+        statusBox.textContent = text;
+        statusBox.className = 'status';
+
+        if (state) {
+          statusBox.classList.add(state);
+        }
+      }
+
+      function levelToHue(level) {
+        /*
+          120 = zöld
+          60 = sárga
+          0 = piros
+        */
+        return Math.round(120 - level * 120);
+      }
+
+      function getAnimalGroupIndex(level) {
+        const index = Math.floor(level * animalGroups.length);
+
+        return clamp(
+          index,
+          0,
+          animalGroups.length - 1
+        );
+      }
+
+      function getAnimalForLevel(level) {
+        const groupIndex = getAnimalGroupIndex(level);
+        return randomItem(animalGroups[groupIndex]);
+      }
+
+      function levelToLabel(level) {
+        if (level < 0.04) return 'Csend';
+
+        if (level < 0.10) {
+          return 'Hangyák, pókok, szitakötők';
+        }
+
+        if (level < 0.20) {
+          return 'Apró repülő állatok';
+        }
+
+        if (level < 0.30) {
+          return 'Kisebb állatok';
+        }
+
+        if (level < 0.40) {
+          return 'Háziállatok';
+        }
+
+        if (level < 0.55) {
+          return 'Közepes állatok';
+        }
+
+        if (level < 0.70) {
+          return 'Nagyvadak';
+        }
+
+        if (level < 0.85) {
+          return 'Nagy állatok';
+        }
+
+        return 'Óriás állatzápor!';
+      }
+
+      function createAnimal(level) {
+        const animal = document.createElement('span');
+
+        const fallDuration = randomBetween(
+          3.8 - level * 1.9,
+          5.5 - level * 2.4
+        );
+
+        const startX = randomBetween(-47, 47);
+
+        const endX = clamp(
+          startX + randomBetween(-18 - level * 13, 18 + level * 13),
+          -48,
+          48
+        );
+
+        animal.className = 'animal';
+        animal.textContent = getAnimalForLevel(level);
+
+        animal.style.setProperty(
+          '--fall-duration',
+          `${fallDuration}s`
+        );
+
+        animal.style.setProperty('--start-x', startX);
+        animal.style.setProperty('--end-x', endX);
+
+        animal.style.setProperty(
+          '--start-rotate',
+          `${randomBetween(-38, 38)}deg`
+        );
+
+        animal.style.setProperty(
+          '--end-rotate',
+          `${randomBetween(-220, 220)}deg`
+        );
+
+        rainLayer.appendChild(animal);
+
+        window.setTimeout(() => {
+          animal.remove();
+        }, (fallDuration + 0.3) * 1000);
+      }
+
+      function spawnAnimals(timestamp) {
+        if (displayLevel < 0.025) {
+          return;
+        }
+
+        const interval = Math.max(
+          90,
+          1150 - displayLevel * 1040
+        );
+
+        if (timestamp - lastSpawnTime < interval) {
+          return;
+        }
+
+        /*
+          Hangosabb hangnál több az egyszerre potyogó állat.
+        */
+        const count = Math.max(
+          1,
+          Math.ceil(displayLevel * 5)
+        );
+
+        for (let index = 0; index < count; index += 1) {
+          window.setTimeout(() => {
+            createAnimal(displayLevel);
+          }, index * randomBetween(35, 100));
+        }
+
+        lastSpawnTime = timestamp;
+      }
+
+      function updateVisuals(timestamp) {
+        const smoothing =
+          rawLevel > displayLevel
+            ? 0.30
+            : 0.075;
+
+        displayLevel +=
+          (rawLevel - displayLevel) * smoothing;
+
+        if (displayLevel < 0.002) {
+          displayLevel = 0;
+        }
+
+        const hue = levelToHue(displayLevel);
+
+        stage.style.setProperty(
+          '--level',
+          displayLevel.toFixed(3)
+        );
+
+        stage.style.setProperty('--hue', hue);
+
+        levelNumber.textContent =
+          `${Math.round(displayLevel * 100)}%`;
+
+        levelLabel.textContent = levelToLabel(displayLevel);
+
+        spawnAnimals(timestamp);
+
+        window.requestAnimationFrame(updateVisuals);
+      }
+
+      function processBridgeMessage(messageText) {
+        const receivedLevel = Number(
+          String(messageText).trim()
+        );
+
+        if (!Number.isFinite(receivedLevel)) {
+          return;
+        }
+
+        rawLevel = clamp(receivedLevel, 0, 1);
+      }
+
+      function connectAudioBridge() {
+        try {
+          const socket = new WebSocket(
+            KINECT_AUDIO_BRIDGE_URL
+          );
+
+          socket.addEventListener('open', () => {
+            setStatus(
+              'Kinect hang-híd: kapcsolódva. Az állatok a hangerőre reagálnak.',
+              'connected'
+            );
+          });
+
+          socket.addEventListener('message', (event) => {
+            processBridgeMessage(event.data);
+          });
+
+          socket.addEventListener('close', () => {
+            rawLevel = 0;
+
+            setStatus(
+              'Kinect hang-híd: kapcsolat megszakadt; újracsatlakozás…',
+              'error'
+            );
+
+            window.setTimeout(connectAudioBridge, 3000);
+          });
+
+          socket.addEventListener('error', () => {
+            setStatus(
+              'Kinect hang-híd: nem érhető el a ws://localhost:8184 címen.',
+              'error'
+            );
+          });
+
+        } catch (error) {
+          setStatus(
+            'Kinect hang-híd: WebSocket hiba.',
+            'error'
+          );
+
+          window.setTimeout(connectAudioBridge, 3000);
+        }
+      }
+
+      window.requestAnimationFrame(updateVisuals);
+      connectAudioBridge();
+    })();
+  </script>
+</body>
+</html>
