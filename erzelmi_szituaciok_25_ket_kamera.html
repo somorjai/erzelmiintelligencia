@@ -1,0 +1,364 @@
+<!doctype html><html lang="hu"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Érzelmi szituációk – két kamera</title><style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif;color:white;background:#122038}.background,.scene-decor{position:fixed;inset:0;overflow:hidden;pointer-events:none}.layout{position:relative;z-index:2;height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.72fr) minmax(0,1fr);gap:22px;align-items:center;padding:68px 24px 86px}.person{height:min(72vh,760px);border:3px solid #f0f6ffb3;border-radius:30px;overflow:hidden;position:relative;background:#00000012;box-shadow:0 15px 55px #0006}.person.mirror{border:13px solid #c5d0da;box-shadow:inset 0 0 0 3px #fff,0 0 0 2px #667785,0 18px 60px #0007;border-image:none;background:linear-gradient(135deg,#fff4,#8797a522)}.person.mirror:after{content:"";position:absolute;inset:0;border-radius:15px;pointer-events:none;box-shadow:inset 3px 3px 5px #fff9,inset -3px -3px 5px #28384c99}canvas{width:100%;height:100%;object-fit:cover;background:transparent}.mirror canvas{transform:scaleX(-1)}video{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}.sentence{padding:25px 18px;text-align:center;border:2px solid #ffffffc2;border-radius:25px;background:#071321c9;box-shadow:0 18px 50px #0005;backdrop-filter:blur(10px)}#icon{font-size:46px}#sentence{font-size:clamp(22px,2.15vw,38px);font-weight:700;line-height:1.35;margin:16px 0}button{font:600 14px Arial;color:white;background:#071321d9;border:1px solid #ffffff70;border-radius:12px;padding:11px 15px;cursor:pointer;backdrop-filter:blur(8px)}button:disabled{opacity:.55}button:hover{background:#244267}.top{position:fixed;z-index:5;top:15px;left:24px;right:24px;display:flex;justify-content:space-between;gap:15px}.nav{position:fixed;z-index:5;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#071321b8;padding:8px;border-radius:18px}#counter{min-width:60px;text-align:center}#status{position:fixed;z-index:6;top:64px;left:50%;transform:translateX(-50%);max-width:85vw;padding:8px 14px;background:#071321e8;border-radius:12px;font-size:13px;text-align:center}#status:empty{display:none}.cameraName{position:absolute;bottom:8px;left:8px;right:8px;text-align:center;font-size:12px;background:#071321aa;border-radius:8px;padding:5px;pointer-events:none}.cameraName:empty{display:none}
+@media(max-width:850px){.layout{gap:9px;padding-left:10px;padding-right:10px;grid-template-columns:minmax(0,1fr) minmax(180px,.85fr) minmax(0,1fr)}.sentence{padding:16px 10px}#sentence{font-size:23px}.top{left:10px;right:10px}.person.mirror{border-width:8px}}@media(max-width:550px){.layout{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;padding-top:90px;gap:12px}.sentence{grid-row:1;grid-column:1/-1}.person{height:100%;min-height:100px}#icon{display:none}#sentence{font-size:21px;margin:0}.top button{font-size:12px;padding:10px}.nav{width:max-content;max-width:98vw}.nav button{padding:10px}}
+.cloud, .star, .tree, .building, .bubble, .snow, .leaf, .fish {
+      position: absolute;
+    }
+
+    .cloud {
+      width: 170px;
+      height: 48px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.72);
+      filter: blur(1px);
+    }
+
+    .cloud::before, .cloud::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: inherit;
+    }
+
+    .cloud::before {
+      width: 70px;
+      height: 70px;
+      left: 26px;
+      bottom: 10px;
+    }
+
+    .cloud::after {
+      width: 86px;
+      height: 86px;
+      right: 20px;
+      bottom: 5px;
+    }
+
+    .star {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 8px #fff;
+    }
+
+    .tree {
+      width: 60px;
+      height: 150px;
+      border-radius: 50% 50% 20% 20%;
+      background: #17663c;
+      box-shadow:
+        0 -30px 0 10px #288852,
+        18px -18px 0 4px #1c7446,
+        -18px -9px 0 2px #207c4c;
+    }
+
+    .tree::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      top: 100px;
+      width: 14px;
+      height: 68px;
+      border-radius: 8px;
+      background: #5f3c24;
+    }
+
+    .building {
+      width: 100px;
+      height: 240px;
+      bottom: 0;
+      background: rgba(23,38,67,.88);
+      border: 3px solid rgba(255,255,255,.08);
+      box-shadow:
+        22px 0 0 rgba(16,28,54,.82),
+        -20px 20px 0 rgba(14,26,48,.78);
+    }
+
+    .bubble {
+      width: 26px;
+      height: 26px;
+      border: 2px solid rgba(255,255,255,.58);
+      border-radius: 50%;
+      box-shadow: inset 4px 4px 8px rgba(255,255,255,.34);
+    }
+
+    .snow {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 0 8px rgba(255,255,255,.8);
+    }
+
+    .leaf {
+      width: 22px;
+      height: 12px;
+      border-radius: 100% 0 100% 0;
+      background: #f2a43d;
+      transform: rotate(35deg);
+    }
+
+    .fish {
+      font-size: 34px;
+      filter: drop-shadow(0 4px 7px rgba(0,0,0,.3));
+    }
+
+</style><div id="background" class="background"><div id="sceneDecor" class="scene-decor"></div></div><div class="top"><button id="openA">Bal kamera</button><div><button id="full">⛶</button> <button id="stop">Leállítás</button></div><button id="openB">Jobb kamera</button></div><main class="layout"><section class="person mirror"><canvas id="canvasA" width="640" height="480"></canvas><span id="nameA" class="cameraName"></span></section><section class="sentence"><div id="icon"></div><p id="sentence"></p></section><section class="person"><canvas id="canvasB" width="640" height="480"></canvas><span id="nameB" class="cameraName"></span></section></main><nav class="nav"><button id="prev">←</button><span id="counter"></span><button id="next">→</button><button id="random">Véletlen</button></nav><div id="status" role="status"></div><video id="videoA" autoplay muted playsinline></video><video id="videoB" autoplay muted playsinline></video><script>
+'use strict';const $=id=>document.getElementById(id),background=$('background'),sceneDecor=$('sceneDecor');const scenes=[{"name": "Iskolai tanterem", "icon": "🏫", "description": "Az egész osztály előtt megdicsérik a rajzodat, pedig nem gondoltad, hogy különleges.", "background": "linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)", "decor": "classroom"}, {"name": "Iskolai tanterem", "icon": "🏫", "description": "Felelés közben elfelejted, amit tudtál, és valaki halkan kinevet.", "background": "linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)", "decor": "classroom"}, {"name": "Iskolai tanterem", "icon": "🏫", "description": "Az új osztálytárs egyedül ül, és megkérdezi, leülhet-e melléd.", "background": "linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)", "decor": "classroom"}, {"name": "Iskolai tanterem", "icon": "🏫", "description": "Véletlenül kiborítod a vizet a társad gondosan elkészített rajzára.", "background": "linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)", "decor": "classroom"}, {"name": "Iskolai tanterem", "icon": "🏫", "description": "A társad azt mondja, hogy rólad másolta a jó ötletet, és megköszöni.", "background": "linear-gradient(#9ed7ff 0 54%, #d8b487 54% 100%)", "decor": "classroom"}, {"name": "Focipálya", "icon": "⚽", "description": "Csapatot választanak a focipályán, és te maradsz utoljára.", "background": "linear-gradient(#85d8ff 0 57%, #3c9c4d 57% 100%)", "decor": "football"}, {"name": "Focipálya", "icon": "⚽", "description": "A barátod kihagy egy fontos gólt, és a többiek őt hibáztatják.", "background": "linear-gradient(#85d8ff 0 57%, #3c9c4d 57% 100%)", "decor": "football"}, {"name": "Focipálya", "icon": "⚽", "description": "Most először sikerül gólt rúgnod, és a csapattársaid veled örülnek.", "background": "linear-gradient(#85d8ff 0 57%, #3c9c4d 57% 100%)", "decor": "football"}, {"name": "Városi park", "icon": "🌳", "description": "A parkban találsz egy pénztárcát, miközben éppen új játékra gyűjtesz.", "background": "linear-gradient(#8bd4ff 0 58%, #529d50 58% 100%)", "decor": "park"}, {"name": "Városi park", "icon": "🌳", "description": "A barátod a parkban elmondja, hogy másik városba fog költözni.", "background": "linear-gradient(#8bd4ff 0 58%, #529d50 58% 100%)", "decor": "park"}, {"name": "Városi park", "icon": "🌳", "description": "Egy régen látott barátod fut feléd a parkban, és a nevedet kiáltja.", "background": "linear-gradient(#8bd4ff 0 58%, #529d50 58% 100%)", "decor": "park"}, {"name": "Könyvtár", "icon": "📚", "description": "A könyvtárban meglátod, hogy valaki szó nélkül elviszi a félretett könyvedet.", "background": "linear-gradient(#6e4d32, #2e1c12)", "decor": "library"}, {"name": "Könyvtár", "icon": "📚", "description": "Kölcsönadsz egy kedvenc könyvet, és a barátod szakadt borítóval hozza vissza.", "background": "linear-gradient(#6e4d32, #2e1c12)", "decor": "library"}, {"name": "Könyvtár", "icon": "📚", "description": "Megtalálod az elveszett könyvedet, és benne van a nagymamád neked írt üzenete.", "background": "linear-gradient(#6e4d32, #2e1c12)", "decor": "library"}, {"name": "Színházi színpad", "icon": "🎭", "description": "A színpadra lépés előtt izgulsz, és a társad csendben megszorítja a kezed.", "background": "radial-gradient(circle at 50% 20%, #ffe47b, transparent 16%), linear-gradient(#40204d, #130914)", "decor": "theatre"}, {"name": "Színházi színpad", "icon": "🎭", "description": "Az előadás végén a barátod kapja a legnagyobb tapsot, pedig te is sokat gyakoroltál.", "background": "radial-gradient(circle at 50% 20%, #ffe47b, transparent 16%), linear-gradient(#40204d, #130914)", "decor": "theatre"}, {"name": "Színházi színpad", "icon": "🎭", "description": "Elrontasz egy mondatot a színpadon, de a társad segít tovább folytatni.", "background": "radial-gradient(circle at 50% 20%, #ffe47b, transparent 16%), linear-gradient(#40204d, #130914)", "decor": "theatre"}, {"name": "Múzeumi galéria", "icon": "🖼️", "description": "A múzeumban rád szólnak valamiért, amit valójában nem te csináltál.", "background": "linear-gradient(90deg, #493a31, #806856 48%, #3b2d26)", "decor": "museum"}, {"name": "Múzeumi galéria", "icon": "🖼️", "description": "Az osztályod megáll egy kép előtt, amely nagyon emlékeztet a régi otthonodra.", "background": "linear-gradient(90deg, #493a31, #806856 48%, #3b2d26)", "decor": "museum"}, {"name": "Hegyi túra", "icon": "🏔️", "description": "A túrán lemaradsz, de valaki visszafordul, hogy veled együtt érjen fel.", "background": "linear-gradient(#9ed9ff 0 52%, #7ca27b 52% 100%)", "decor": "mountain"}, {"name": "Hegyi túra", "icon": "🏔️", "description": "Már majdnem feladod a kapaszkodást, amikor végre megpillantod a hegytetőt.", "background": "linear-gradient(#9ed9ff 0 52%, #7ca27b 52% 100%)", "decor": "mountain"}, {"name": "Téli falucska", "icon": "⛄", "description": "A közösen épített hóember összedől, és a társad téged okol érte.", "background": "linear-gradient(#b8e8ff 0 59%, #f7fcff 59% 100%)", "decor": "winter"}, {"name": "Téli falucska", "icon": "⛄", "description": "A hóban észreveszed, hogy egy társadnak nincs kesztyűje, és nagyon fázik.", "background": "linear-gradient(#b8e8ff 0 59%, #f7fcff 59% 100%)", "decor": "winter"}, {"name": "Tengerpart", "icon": "🏖️", "description": "Egy hullám elmossa a homokvárat, amelyen egész délelőtt együtt dolgoztatok.", "background": "linear-gradient(#78d9ff 0 55%, #55bce1 55% 66%, #f3d08a 66% 100%)", "decor": "beach"}, {"name": "Virágos rét", "icon": "🌼", "description": "A réten a barátod megmutat egy apró virágot, amely mellett mindenki más elsétált.", "background": "linear-gradient(#98dfff 0 54%, #4ca956 54% 100%)", "decor": "meadow"}];let current=0;function addElement(className, style, text = '') {
+        const element = document.createElement('div');
+        element.className = className;
+        element.textContent = text;
+        Object.assign(element.style, style);
+        sceneDecor.appendChild(element);
+      }
+
+      function addCloud(left, top, scale = 1) {
+        addElement('cloud', {
+          left: `${left}%`,
+          top: `${top}%`,
+          transform: `scale(${scale})`,
+          opacity: String(.62 + Math.random() * .25)
+        });
+      }
+
+      function addStars(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('star', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 62}%`,
+            transform: `scale(${.45 + Math.random() * 1.4})`
+          });
+        }
+      }
+
+      function addSnow(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('snow', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 68}%`,
+            transform: `scale(${.5 + Math.random() * 1.5})`
+          });
+        }
+      }
+
+      function addLeaves(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('leaf', {
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 65}%`,
+            transform: `rotate(${Math.random() * 360}deg) scale(${.55 + Math.random()})`
+          });
+        }
+      }
+
+      function addTrees(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('tree', {
+            left: `${i * (100 / count) + Math.random() * 7}%`,
+            bottom: `${Math.random() * 6 - 4}%`,
+            transform: `scale(${.65 + Math.random() * .8})`,
+            transformOrigin: 'bottom'
+          });
+        }
+      }
+
+      function addBuildings(count) {
+        for (let i = 0; i < count; i++) {
+          addElement('building', {
+            left: `${i * (100 / count) + Math.random() * 6}%`,
+            height: `${150 + Math.random() * 220}px`,
+            transform: `scale(${.7 + Math.random() * .55})`,
+            transformOrigin: 'bottom'
+          });
+        }
+      }
+
+      function decorateScene(type) {
+        sceneDecor.innerHTML = '';
+
+        switch (type) {
+          case 'classroom':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:5%;top:20%;width:28%;height:23%;background:#2b5b37;border:12px solid #8a603a;box-shadow:0 0 0 3px rgba(255,255,255,.14) inset"></div>
+              <div style="position:absolute;right:7%;top:20%;width:18%;height:28%;background:#e5f4ff;border:8px solid #fff;box-shadow:inset 0 0 0 2px #78b3e1"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:17%;background:repeating-linear-gradient(90deg,#c99361 0 70px,#a87449 70px 74px)"></div>`;
+            break;
+
+          case 'forest':
+          case 'jungle':
+            addTrees(type === 'jungle' ? 11 : 7);
+            addLeaves(type === 'jungle' ? 24 : 12);
+            break;
+
+          case 'beach':
+            addCloud(8, 15, .7);
+            addCloud(68, 11, .9);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:8%;bottom:22%;font-size:110px">🌴</div>
+              <div style="position:absolute;right:8%;bottom:18%;font-size:70px">⛱️</div>
+              <div style="position:absolute;left:56%;bottom:17%;font-size:58px">🐚</div>`;
+            break;
+
+          case 'space':
+          case 'moon':
+            addStars(65);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:10%;top:20%;font-size:78px">🪐</div>
+              <div style="position:absolute;right:10%;top:38%;font-size:48px">🚀</div>`;
+            break;
+
+          case 'mountain':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;bottom:18%;width:0;height:0;border-left:23vw solid transparent;border-right:23vw solid transparent;border-bottom:37vh solid #677f91"></div>
+              <div style="position:absolute;right:-4%;bottom:15%;width:0;height:0;border-left:27vw solid transparent;border-right:27vw solid transparent;border-bottom:45vh solid #4e6b7d"></div>
+              <div style="position:absolute;left:17%;bottom:51%;width:0;height:0;border-left:7vw solid transparent;border-right:7vw solid transparent;border-bottom:11vh solid #f4fbff"></div>`;
+            addCloud(65, 14, .8);
+            break;
+
+          case 'park':
+          case 'meadow':
+            addTrees(type === 'park' ? 6 : 3);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:8%;bottom:16%;font-size:65px">🪑</div>
+              <div style="position:absolute;right:10%;bottom:16%;font-size:84px">🌷</div>
+              <div style="position:absolute;left:68%;bottom:20%;font-size:66px">🌼</div>`;
+            break;
+
+          case 'museum':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:8%;top:18%;width:22%;height:31%;border:12px solid #dab878;background:linear-gradient(135deg,#f06e53,#5643a6)"></div>
+              <div style="position:absolute;right:8%;top:20%;width:21%;height:29%;border:12px solid #dab878;background:linear-gradient(135deg,#43a7b5,#e9d25c)"></div>
+              <div style="position:absolute;left:40%;top:22%;width:20%;height:40%;border:12px solid #dab878;background:linear-gradient(135deg,#664226,#c49361)"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:18%;background:#34241e"></div>`;
+            break;
+
+          case 'library':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:3%;top:10%;width:28%;height:65%;background:repeating-linear-gradient(90deg,#974d35 0 12px,#e0a14f 12px 22px,#43728a 22px 32px,#704881 32px 41px);border:12px solid #422617"></div>
+              <div style="position:absolute;right:3%;top:10%;width:28%;height:65%;background:repeating-linear-gradient(90deg,#538b78 0 12px,#debc55 12px 22px,#a75e4c 22px 32px,#536797 32px 41px);border:12px solid #422617"></div>
+              <div style="position:absolute;left:43%;bottom:12%;font-size:110px">📖</div>`;
+            break;
+
+          case 'theatre':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;top:0;bottom:0;width:20%;background:linear-gradient(90deg,#540d23,#a41642 60%,transparent);clip-path:polygon(0 0,100% 0,72% 100%,0 100%)"></div>
+              <div style="position:absolute;right:0;top:0;bottom:0;width:20%;background:linear-gradient(270deg,#540d23,#a41642 60%,transparent);clip-path:polygon(0 0,100% 0,100% 100%,28% 100%)"></div>
+              <div style="position:absolute;left:43%;top:14%;font-size:100px">🎭</div>`;
+            break;
+
+          case 'castle':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:13%;bottom:15%;font-size:180px">🏰</div>
+              <div style="position:absolute;right:8%;bottom:19%;font-size:105px">🐉</div>`;
+            addCloud(64, 14, .7);
+            break;
+
+          case 'desert':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:-6%;bottom:17%;width:65%;height:25%;border-radius:50%;background:#dc934b;transform:rotate(-9deg)"></div>
+              <div style="position:absolute;right:-8%;bottom:14%;width:68%;height:27%;border-radius:50%;background:#e9aa58;transform:rotate(9deg)"></div>
+              <div style="position:absolute;left:15%;bottom:18%;font-size:120px">🌵</div>
+              <div style="position:absolute;right:17%;bottom:20%;font-size:80px">🐪</div>`;
+            break;
+
+          case 'underwater':
+            for (let i = 0; i < 18; i++) {
+              addElement('bubble', {
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 75}%`,
+                transform: `scale(${.35 + Math.random() * 1.3})`
+              });
+            }
+            for (let i = 0; i < 7; i++) {
+              addElement('fish', {
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 63}%`
+              }, i % 2 ? '🐠' : '🐟');
+            }
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:4%;bottom:8%;font-size:95px">🪸</div>
+              <div style="position:absolute;right:6%;bottom:9%;font-size:75px">🐙</div>`;
+            break;
+
+          case 'arctic':
+          case 'winter':
+            addSnow(50);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:7%;bottom:14%;font-size:105px">${type === 'arctic' ? '🐻‍❄️' : '⛄'}</div>
+              <div style="position:absolute;right:8%;bottom:13%;font-size:80px">🏠</div>`;
+            break;
+
+          case 'dino':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:-5%;bottom:16%;width:54%;height:25%;border-radius:50%;background:#6c803d;transform:rotate(-8deg)"></div>
+              <div style="position:absolute;right:-4%;bottom:13%;width:58%;height:28%;border-radius:50%;background:#7f923e;transform:rotate(8deg)"></div>
+              <div style="position:absolute;left:12%;bottom:14%;font-size:135px">🦖</div>
+              <div style="position:absolute;right:12%;bottom:21%;font-size:100px">🦕</div>`;
+            break;
+
+          case 'firestation':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:16%;width:42%;height:40%;background:#cb443b;border:10px solid #f2dfbf"></div>
+              <div style="position:absolute;left:17%;top:36%;font-size:88px">🚒</div>
+              <div style="position:absolute;right:10%;bottom:18%;font-size:105px">🔥</div>`;
+            break;
+
+          case 'airport':
+            addCloud(8, 16, .7);
+            addCloud(64, 10, .8);
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:24%;background:#3f4b51"></div>
+              <div style="position:absolute;left:10%;bottom:31%;font-size:140px">✈️</div>
+              <div style="position:absolute;right:12%;bottom:19%;font-size:75px">🧳</div>`;
+            break;
+
+          case 'fairytale':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:15%;font-size:150px">🏰</div>
+              <div style="position:absolute;right:11%;bottom:21%;font-size:100px">🦄</div>
+              <div style="position:absolute;left:55%;top:15%;font-size:75px">🌈</div>`;
+            break;
+
+          case 'laboratory':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:10%;bottom:17%;font-size:120px">🧪</div>
+              <div style="position:absolute;right:13%;bottom:16%;font-size:115px">🔬</div>
+              <div style="position:absolute;left:40%;top:17%;font-size:75px">⚛️</div>`;
+            break;
+
+          case 'football':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:42%;background:repeating-linear-gradient(90deg,#31974a 0 11%,#3eac58 11% 22%);border-top:4px solid rgba(255,255,255,.8)"></div>
+              <div style="position:absolute;left:12%;bottom:20%;font-size:105px">⚽</div>
+              <div style="position:absolute;right:11%;bottom:21%;font-size:95px">🥅</div>`;
+            break;
+
+          case 'pirate':
+            sceneDecor.innerHTML = `
+              <div style="position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(#2788c5,#125486)"></div>
+              <div style="position:absolute;left:22%;bottom:17%;font-size:150px">🏴‍☠️</div>
+              <div style="position:absolute;right:9%;bottom:22%;font-size:80px">🦜</div>`;
+            break;
+
+          case 'nightcity':
+            addStars(40);
+            addBuildings(7);
+            sceneDecor.innerHTML += `
+              <div style="position:absolute;left:50%;top:22%;font-size:70px">🌙</div>`;
+            break;
+        }
+      }
+
+
+function renderScene(){const s=scenes[current];background.style.background=s.background;decorateScene(s.decor);$('icon').textContent=s.icon;$('sentence').textContent=s.description;$('counter').textContent=(current+1)+' / '+scenes.length;}
+$('prev').onclick=()=>{current=(current+24)%25;renderScene();};$('next').onclick=()=>{current=(current+1)%25;renderScene();};$('random').onclick=()=>{current=(current+1+Math.floor(Math.random()*24))%25;renderScene();};document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();});$('full').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch(e){status(e.message);}};
+let statusTimer;function status(t,error=false){clearTimeout(statusTimer);$('status').textContent=t;if(!error)statusTimer=setTimeout(()=>{$('status').textContent='';},6500);}
+const streams={A:null,B:null},models={A:null,B:null},contexts={A:$('canvasA').getContext('2d'),B:$('canvasB').getContext('2d')};let epoch=0,busy=false,library=null,working=false;const failed={A:false,B:false};
+function loadLibrary(){if(library)return library;library=new Promise((resolve,reject)=>{const script=document.createElement('script');const timer=setTimeout(()=>reject(Error('A háttéreltávolító modul betöltése túl sokáig tart.')),25000);script.src='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js';script.onload=()=>{clearTimeout(timer);if(typeof SelfieSegmentation==='undefined')reject(Error('A háttéreltávolító modul nem érhető el.'));else resolve();};script.onerror=()=>{clearTimeout(timer);reject(Error('A háttéreltávolító modul nem töltődött be. Internetkapcsolat szükséges.'));};document.head.appendChild(script);}).catch(e=>{library=null;throw e;});return library;}
+async function ensureModel(k){if(models[k])return models[k];await loadLibrary();const model=new SelfieSegmentation({locateFile:file=>'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/'+file});model.setOptions({modelSelection:1,selfieMode:false});model.onResults(results=>{if(!streams[k])return;const c=contexts[k],canvas=$('canvas'+k);c.save();c.clearRect(0,0,canvas.width,canvas.height);if(results.segmentationMask){c.drawImage(results.segmentationMask,0,0,canvas.width,canvas.height);c.globalCompositeOperation='source-in';}c.drawImage(results.image,0,0,canvas.width,canvas.height);c.restore();});await model.initialize();models[k]=model;return model;}
+function stop(){epoch++;busy=false;for(const k of ['A','B']){if(streams[k])streams[k].getTracks().forEach(t=>t.stop());streams[k]=null;$('video'+k).srcObject=null;contexts[k].clearRect(0,0,640,480);$('name'+k).textContent='';}status('Leállítva.');}
+async function open(k){if(busy){status('Kameranyitás folyamatban.');return;}busy=true;const n=epoch;let incoming=null,accepted=false;status('Kamera megnyitása…');const timer=setTimeout(()=>{if(n===epoch)status('A böngésző kameraengedélyére várunk.',true);},15000);try{if(!navigator.mediaDevices)throw Error('A kamera API nem érhető el.');incoming=await navigator.mediaDevices.getUserMedia({audio:false,video:{width:{ideal:640},height:{ideal:480},frameRate:{ideal:15}}});if(n!==epoch)return;clearTimeout(timer);const t=incoming.getVideoTracks()[0],id=t.getSettings().deviceId,other=streams[k==='A'?'B':'A'];if(other&&id&&id===other.getVideoTracks()[0].getSettings().deviceId)throw Error('Ugyanaz a kamera. Válaszd a másik eszközt a böngészőben.');if(streams[k])streams[k].getTracks().forEach(t=>t.stop());streams[k]=incoming;accepted=true;failed[k]=false;$('video'+k).srcObject=incoming;$('video'+k).play().catch(e=>status(e.message,true));$('name'+k).textContent=t.label;status('Automatikus háttéreltávolítás betöltése…');await ensureModel(k);if(n===epoch)status('');}catch(e){if(n===epoch)status(e.message,true);}finally{clearTimeout(timer);if(incoming&&!accepted)incoming.getTracks().forEach(t=>t.stop());if(n===epoch)busy=false;}}
+$('openA').onclick=()=>open('A');$('openB').onclick=()=>open('B');$('stop').onclick=stop;window.addEventListener('pagehide',stop);
+async function process(){if(!working){working=true;try{for(const k of ['A','B']){const v=$('video'+k);if(!streams[k]||v.readyState<2)continue;if(models[k]&&!failed[k]){try{await models[k].send({image:v});}catch(e){failed[k]=true;status('Háttéreltávolítási hiba: '+e.message,true);}}else{const c=contexts[k];c.clearRect(0,0,640,480);c.drawImage(v,0,0,640,480);}}}finally{working=false;}}setTimeout(process,65);}renderScene();process();
+</script></html>
